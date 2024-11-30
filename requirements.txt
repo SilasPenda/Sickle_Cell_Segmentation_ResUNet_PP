@@ -1,10 +1,6 @@
-albumentations
 numpy
-nibabel
+pillow
 matplotlib
 pyyaml
 tqdm
-torch
-torchvision
-torchaudio
-torchsummary
+tensorflow
