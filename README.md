@@ -1,1 +1,1 @@
-# Sickle_Cell_Segmentation_ResUNET_PP
+# Sickle_Cell_Segmentation
