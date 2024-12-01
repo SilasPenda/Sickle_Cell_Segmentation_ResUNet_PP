@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 from src.dataset import get_data_loaders
 from src.model import ResUNet_pp
+from tensorflow.keras.models import load_model
 
 
 def main():
@@ -34,7 +35,11 @@ def main():
     num_epochs = args.epochs
 
     # Initialize the model
-    model = ResUNet_pp(input_shape=(IMAGE_HEIGHT, IMAGE_WIDTH, 3), num_classes=4)
+    if args.checkpoint is not None:
+        model = load_model(args.checkpoint) 
+    else:
+        model = ResUNet_pp(input_shape=(IMAGE_HEIGHT, IMAGE_WIDTH, 3), num_classes=4)
+
     optimizer = tf.keras.optimizers.Adam(learning_rate=0.0001)
 
     # Use sparse categorical crossentropy for multi-class segmentation
@@ -46,10 +51,6 @@ def main():
 
     best_loss = float("inf")
     train_losses, val_losses = [], []
-
-    if args.checkpoint is not None:
-        model.load_weights(args.checkpoint)
- 
 
     # Training loop
     for epoch in range(num_epochs):
@@ -79,7 +80,7 @@ def main():
         val_losses.append(val_loss.result().numpy())
 
         # Save the latest model
-        model.save_weights(last_model_path)
+        model.save(last_model_path)
 
         print(f"Train Loss: {train_losses[-1]:.4f}, Validation Loss: {val_losses[-1]:.4f}")
 
@@ -96,7 +97,7 @@ def main():
 
         # Save the best model
         if val_losses[-1] < best_loss:
-            model.save_weights(best_model_path)
+            model.save(best_model_path)
 
 
 if __name__ == "__main__":
