@@ -8,7 +8,7 @@ from src.dataset import get_data_loaders
 from src.model import ResUNet_pp
 from tensorflow.keras.models import load_model
 
-from tensorflow.keras.mixed_precision import LossScaleOptimizer, Policy
+from tensorflow.keras.mixed_precision import LossScaleOptimizer, Policy, set_global_policy
 from tensorflow.keras.optimizers import Adam
 
 def main():
@@ -55,11 +55,10 @@ def main():
     # Training loop
     # Set mixed precision policy
     policy = Policy("mixed_float16")
-    tf.keras.mixed_precision.set_global_policy(policy)
+    set_global_policy(policy)
 
     # Wrap optimizer with LossScaleOptimizer
-    base_optimizer = Adam(learning_rate=1e-4)
-    optimizer = LossScaleOptimizer(base_optimizer)
+    optimizer = Adam(learning_rate=1e-4)
 
     # Training loop with mixed precision
     for epoch in range(num_epochs):
@@ -71,11 +70,9 @@ def main():
             with tf.GradientTape() as tape:
                 predictions = model(images, training=True)
                 loss = loss_fn(masks, predictions)
-                scaled_loss = optimizer.get_scaled_loss(loss)  # Scale the loss for mixed precision
 
-            gradients = tape.gradient(scaled_loss, model.trainable_variables)
-            unscaled_gradients = optimizer.get_unscaled_gradients(gradients)  # Unscale gradients
-            optimizer.apply_gradients(zip(unscaled_gradients, model.trainable_variables))
+            gradients = tape.gradient(loss, model.trainable_variables)
+            optimizer.apply_gradients(zip(gradients, model.trainable_variables))
             train_loss.update_state(loss)
 
         train_losses.append(train_loss.result().numpy())
