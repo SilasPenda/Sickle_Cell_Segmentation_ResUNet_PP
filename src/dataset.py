@@ -104,7 +104,7 @@ def get_data_loaders(IMAGE_HEIGHT, IMAGE_WIDTH):
     val_images_dir = os.path.join(val_path, "images")
     val_labels_dir = os.path.join(val_path, "labels")
 
-    batch_size = 8
+    batch_size = 4
     image_size = (IMAGE_HEIGHT, IMAGE_WIDTH)
 
     # Create datasets

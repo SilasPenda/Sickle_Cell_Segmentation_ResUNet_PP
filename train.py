@@ -8,6 +8,8 @@ from src.dataset import get_data_loaders
 from src.model import ResUNet_pp
 from tensorflow.keras.models import load_model
 
+from tensorflow.keras.mixed_precision import LossScaleOptimizer, Policy
+from tensorflow.keras.optimizers import Adam
 
 def main():
     parser = argparse.ArgumentParser(description='Train a 2D U-Net Segmentation model.')
@@ -40,8 +42,6 @@ def main():
     else:
         model = ResUNet_pp(input_shape=(IMAGE_HEIGHT, IMAGE_WIDTH, 3), num_classes=4)
 
-    optimizer = tf.keras.optimizers.Adam(learning_rate=0.0001)
-
     # Use sparse categorical crossentropy for multi-class segmentation
     loss_fn = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=False)
 
@@ -53,6 +53,15 @@ def main():
     train_losses, val_losses = [], []
 
     # Training loop
+    # Set mixed precision policy
+    policy = Policy("mixed_float16")
+    tf.keras.mixed_precision.set_global_policy(policy)
+
+    # Wrap optimizer with LossScaleOptimizer
+    base_optimizer = Adam(learning_rate=1e-4)
+    optimizer = LossScaleOptimizer(base_optimizer)
+
+    # Training loop with mixed precision
     for epoch in range(num_epochs):
         print(f"Epoch {epoch + 1}/{num_epochs}")
 
@@ -61,11 +70,12 @@ def main():
         for images, masks in tqdm(train_loader, desc="Training"):
             with tf.GradientTape() as tape:
                 predictions = model(images, training=True)
-                # print("unique masks: ", np.unique(masks))
                 loss = loss_fn(masks, predictions)
+                scaled_loss = optimizer.get_scaled_loss(loss)  # Scale the loss for mixed precision
 
-            gradients = tape.gradient(loss, model.trainable_variables)
-            optimizer.apply_gradients(zip(gradients, model.trainable_variables))
+            gradients = tape.gradient(scaled_loss, model.trainable_variables)
+            unscaled_gradients = optimizer.get_unscaled_gradients(gradients)  # Unscale gradients
+            optimizer.apply_gradients(zip(unscaled_gradients, model.trainable_variables))
             train_loss.update_state(loss)
 
         train_losses.append(train_loss.result().numpy())
@@ -76,7 +86,7 @@ def main():
             predictions = model(images, training=False)
             loss = loss_fn(masks, predictions)
             val_loss.update_state(loss)
-            
+
         val_losses.append(val_loss.result().numpy())
 
         # Save the latest model
