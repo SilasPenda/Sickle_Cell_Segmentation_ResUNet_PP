@@ -26,7 +26,7 @@ module list
 ## printf "\n --- begin of python execution ---\n"
 
 ## set a work dir OR variables with path to feed to python (ARGPARSER, click, etc)
-cd /work/c-2iia/sp165339/Sickle_Cell_Segmentation_ResUNet++
+cd /work/c-2iia/sp165339/Sickle_Cell_Segmentation_ResUNet_PP
 
 ## run script
 python train.py --epochs 150
