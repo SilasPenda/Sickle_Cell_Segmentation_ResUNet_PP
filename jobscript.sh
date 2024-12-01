@@ -5,8 +5,8 @@
 #$ -N segm_script_executor
 #$ -o worklog.log
 
-export PYTHONUSERBASE=/work/c-2iia/sp165339/venv
-export PATH=/work/c-2iia/sp165339/venv/bin
+export PYTHONUSERBASE=/work/c-2iia/sp165339/TF_venv
+export PATH=/work/c-2iia/sp165339/TF_venv/bin
 export PYTHONIOENCODING=utf8
  
 ## job start time
