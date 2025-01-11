@@ -3,6 +3,8 @@ erythrocyte_data_multi
 results
 models
 save.png
+testing.ipynb
+train2.py
 src/model_pytorch.py
 
 # Byte-compiled / optimized / DLL files

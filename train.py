@@ -4,12 +4,14 @@ import numpy as np
 import tensorflow as tf
 import matplotlib.pyplot as plt
 from tqdm import tqdm
+
+from tensorflow.keras.models import load_model
+from tensorflow.keras.mixed_precision import Policy, set_global_policy
+from tensorflow.keras.optimizers import Adam
+
 from src.dataset import get_data_loaders
 from src.model import ResUNet_pp
-from tensorflow.keras.models import load_model
-
-from tensorflow.keras.mixed_precision import LossScaleOptimizer, Policy, set_global_policy
-from tensorflow.keras.optimizers import Adam
+from src.utils import dice_coefficient, dice_coefficient_loss
 
 def main():
     parser = argparse.ArgumentParser(description='Train a 2D U-Net Segmentation model.')
@@ -60,51 +62,91 @@ def main():
     # Wrap optimizer with LossScaleOptimizer
     optimizer = Adam(learning_rate=1e-4)
 
-    # Training loop with mixed precision
-    for epoch in range(num_epochs):
-        print(f"Epoch {epoch + 1}/{num_epochs}")
+    # # Training loop with mixed precision
+    # for epoch in range(num_epochs):
+    #     print(f"Epoch {epoch + 1}/{num_epochs}")
 
-        # Training phase
-        train_loss.reset_state()
-        for images, masks in tqdm(train_loader, desc="Training"):
-            with tf.GradientTape() as tape:
-                predictions = model(images, training=True)
-                loss = loss_fn(masks, predictions)
+    #     # Training phase
+    #     train_loss.reset_state()
+    #     for images, masks in tqdm(train_loader, desc="Training"):
+    #         with tf.GradientTape() as tape:
+    #             predictions = model(images, training=True)
+    #             loss = loss_fn(masks, predictions)
 
-            gradients = tape.gradient(loss, model.trainable_variables)
-            optimizer.apply_gradients(zip(gradients, model.trainable_variables))
-            train_loss.update_state(loss)
+    #         gradients = tape.gradient(loss, model.trainable_variables)
+    #         optimizer.apply_gradients(zip(gradients, model.trainable_variables))
+    #         train_loss.update_state(loss)
 
-        train_losses.append(train_loss.result().numpy())
+    #     train_losses.append(train_loss.result().numpy())
 
-        # Validation phase
-        val_loss.reset_state()
-        for images, masks in tqdm(val_loader, desc="Validation"):
-            predictions = model(images, training=False)
-            loss = loss_fn(masks, predictions)
-            val_loss.update_state(loss)
+    #     # Validation phase
+    #     val_loss.reset_state()
+    #     for images, masks in tqdm(val_loader, desc="Validation"):
+    #         predictions = model(images, training=False)
+    #         loss = loss_fn(masks, predictions)
+    #         val_loss.update_state(loss)
 
-        val_losses.append(val_loss.result().numpy())
+    #     val_losses.append(val_loss.result().numpy())
 
-        # Save the latest model
-        model.save(last_model_path)
+    #     # Save the latest model
+    #     model.save(last_model_path)
 
-        print(f"Train Loss: {train_losses[-1]:.4f}, Validation Loss: {val_losses[-1]:.4f}")
+    #     print(f"Train Loss: {train_losses[-1]:.4f}, Validation Loss: {val_losses[-1]:.4f}")
 
-        # Plot train and validation losses
-        plt.plot(range(1, len(train_losses) + 1), train_losses, label="Train Loss")
-        plt.plot(range(1, len(val_losses) + 1), val_losses, label="Validation Loss")
-        plt.xlabel("Epoch")
-        plt.ylabel("Loss")
-        plt.legend()
-        plt.title("Train and Validation Loss Over Epochs")
-        plt.savefig(loss_plot_path)
-        plt.close()
+    #     # Plot train and validation losses
+    #     plt.plot(range(1, len(train_losses) + 1), train_losses, label="Train Loss")
+    #     plt.plot(range(1, len(val_losses) + 1), val_losses, label="Validation Loss")
+    #     plt.xlabel("Epoch")
+    #     plt.ylabel("Loss")
+    #     plt.legend()
+    #     plt.title("Train and Validation Loss Over Epochs")
+    #     plt.savefig(loss_plot_path)
+    #     plt.close()
 
 
-        # Save the best model
-        if val_losses[-1] < best_loss:
-            model.save(best_model_path)
+    #     # Save the best model
+    #     if val_losses[-1] < best_loss:
+    #         model.save(best_model_path)
+
+    model.compile(optimizer = optimizer, loss=dice_coefficient_loss, metrics=[dice_coefficient])
+
+    #Fit the model
+    history = model.fit(
+        train_loader,
+        epochs=100,
+        verbose=1,
+        validation_data=val_loader
+        )
+    
+    #Save model for future use
+    model.save(last_model_path)
+
+    #plot the training and validation IoU and loss at each epoch
+    loss = history.history['loss']
+    val_loss = history.history['val_loss']
+    epochs = range(1, len(loss) + 1)
+    plt.plot(epochs, loss, 'y', label='Training loss')
+    plt.plot(epochs, val_loss, 'r', label='Validation loss')
+    plt.title('Training and validation loss')
+    plt.xlabel('Epochs')
+    plt.ylabel('Loss')
+    plt.legend()
+    plt.show()
+
+    acc = history.history['dice_coefficient']
+    val_acc = history.history['val_dice_coefficient']
+
+    plt.plot(epochs, acc, 'y', label='Training Dice')
+    plt.plot(epochs, val_acc, 'r', label='Validation Dice')
+    plt.title('Training and validation Dice')
+    plt.xlabel('Epochs')
+    plt.ylabel('Dice')
+    plt.legend()
+    plt.show()
+
+    plt.savefig(loss_plot_path)
+    plt.close()
+
 
 
 if __name__ == "__main__":

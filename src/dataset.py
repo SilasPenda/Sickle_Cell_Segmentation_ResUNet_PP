@@ -7,11 +7,6 @@ import matplotlib.pyplot as plt
 from src.utils import get_config
 
 
-from PIL import Image
-import numpy as np
-import os
-import tensorflow as tf
-
 class LoadTransformDataset(tf.keras.utils.Sequence):
     def __init__(self, images_dir, labels_dir, transform=None, batch_size=8, image_size=(256, 256)):
         self.images_dir = images_dir
@@ -39,25 +34,24 @@ class LoadTransformDataset(tf.keras.utils.Sequence):
             class_mask[np.all(mask == rgb, axis=-1)] = cls
         return class_mask
 
-    def load_image(self, image_path, mask_path):
+    def load_image(self, image_path, label_path):
         image = Image.open(image_path).convert("RGB")
-        mask = Image.open(mask_path)
+        label = Image.open(label_path)
 
         if self.transform:
-            image = self.transform(image)
-            mask = self.transform(mask)
+            image, label = self.transform(image, label)
 
         # Ensure PIL.Image for resizing
         if not isinstance(image, Image.Image):
             image = Image.fromarray(np.uint8(image * 255))
-        if not isinstance(mask, Image.Image):
-            mask = Image.fromarray(np.uint8(mask))
+        if not isinstance(label, Image.Image):
+            label = Image.fromarray(np.uint8(label))
 
         # Resize and normalize
         image = np.array(image.resize(self.image_size)) / 255.0
-        mask = self.rgb_to_class(np.array(mask.resize(self.image_size)))
+        label = self.rgb_to_class(np.array(label.resize(self.image_size)))
 
-        return image, mask
+        return image, label
 
     def __getitem__(self, idx):
         """Fetch a batch of data."""
@@ -72,24 +66,37 @@ class LoadTransformDataset(tf.keras.utils.Sequence):
 
         # print(f"Batch {idx}: {batch_images}")
 
-        images, masks = [], []
+        images, labels = [], []
         for img_name, label_name in zip(batch_images, batch_labels):
             img_path = os.path.join(self.images_dir, img_name)
             label_path = os.path.join(self.labels_dir, label_name)
-            image, mask = self.load_image(img_path, label_path)
-            images.append(image)
-            masks.append(mask)
 
-        return np.array(images, dtype=np.float32), np.array(masks, dtype=np.int32)
+            image, label = self.load_image(img_path, label_path)
+
+            images.append(image)
+            labels.append(label)
+
+        return np.array(images, dtype=np.float32), np.array(labels, dtype=np.int32)
 
 
 def get_data_loaders(IMAGE_HEIGHT, IMAGE_WIDTH):
-    # Define data augmentation
-    def augment(image):
-        image = tf.image.random_flip_left_right(image)
-        image = tf.image.random_flip_up_down(image)
-        image = tf.image.rot90(image, tf.random.uniform(shape=[], maxval=4, dtype=tf.int32))
-        return image
+    def augment(image, label):
+        # Random horizontal flip (left-right)
+        if tf.random.uniform(()) > 0.5:
+            image = tf.image.flip_left_right(image)
+            label = tf.image.flip_left_right(label)
+
+        # Random vertical flip (up-down)
+        if tf.random.uniform(()) > 0.5:
+            image = tf.image.flip_up_down(image)
+            label = tf.image.flip_up_down(label)
+
+        # Random rotation (90 degrees)
+        rotations = tf.random.uniform(shape=[], minval=0, maxval=4, dtype=tf.int32)
+        image = tf.image.rot90(image, rotations)
+        label = tf.image.rot90(label, rotations)
+
+        return image, label
 
     train_transform = augment
     val_transform = None
@@ -135,5 +142,6 @@ if __name__ == "__main__":
         plt.imshow(label, cmap="gray")
         plt.title("Label")
 
-        plt.savefig("save.png")
+        # plt.savefig("save.png")
+        plt.show()
         break

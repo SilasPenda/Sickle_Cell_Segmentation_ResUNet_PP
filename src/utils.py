@@ -1,5 +1,6 @@
 import yaml
-import numpy as np
+import tensorflow as tf
+from tensorflow.keras import backend as K
 
 
 def get_config(config_filepath: str) -> dict:
@@ -9,6 +10,44 @@ def get_config(config_filepath: str) -> dict:
         return config
     except FileNotFoundError:
         return {}
+    
+# Loss Function and coefficients to be used during training:
+# def dice_coefficient(y_true, y_pred):
+#     smoothing_factor = 1
+#     flat_y_true = K.flatten(y_true)
+#     flat_y_pred = K.flatten(y_pred)
+#     return (2. * K.sum(flat_y_true * flat_y_pred) + smoothing_factor) / (K.sum(flat_y_true) + K.sum(flat_y_pred) + smoothing_factor)
+
+# def dice_coefficient_loss(y_true, y_pred):
+#     return 1 - dice_coefficient(y_true, y_pred)
+
+# def dice_coefficient(y_true, y_pred):
+#     smoothing_factor = 1
+#     num_classes = K.int_shape(y_pred)[-1]
+
+#     y_true = tf.one_hot(y_true, depth=num_classes)
+#     flat_y_true = K.flatten(K.cast(y_true, dtype='float32'))
+#     flat_y_pred = K.flatten(K.cast(y_pred, dtype='float32'))    
+
+#     return (2. * K.sum(flat_y_true * flat_y_pred) + smoothing_factor) / (K.sum(flat_y_true) + K.sum(flat_y_pred) + smoothing_factor)
+
+def dice_coefficient(y_true, y_pred):
+    smoothing_factor = 1
+    num_classes = K.int_shape(y_pred)[-1]
+
+    # Cast y_true to int32 before using tf.one_hot
+    y_true = tf.cast(y_true, dtype='int32')
+    y_true = tf.one_hot(y_true, depth=num_classes)
+
+    flat_y_true = K.flatten(K.cast(y_true, dtype='float32'))
+    flat_y_pred = K.flatten(K.cast(y_pred, dtype='float32'))
+
+    return (2. * K.sum(flat_y_true * flat_y_pred) + smoothing_factor) / (K.sum(flat_y_true) + K.sum(flat_y_pred) + smoothing_factor)
+
+
+def dice_coefficient_loss(y_true, y_pred):
+    return 1 - dice_coefficient(y_true, y_pred)
+
     
 # def dice_loss(pred, target, smooth=1e-6):
 #     # pred: [batch, channels, height, width], pred should be softmax probabilities
